@@ -1,37 +1,18 @@
-# NanoClaw Agent Container
-# Runs Claude Agent SDK in isolated Linux VM with browser automation
+# NanoClaw Agent Container — Rove (CLI-only, no browser automation)
+# Runs Claude Code CLI in isolated Linux container
 
 FROM node:22-slim
 
-# Install system dependencies for Chromium
 RUN apt-get update && apt-get install -y \
-    chromium \
-    fonts-liberation \
-    fonts-noto-cjk \
-    fonts-noto-color-emoji \
-    libgbm1 \
-    libnss3 \
-    libatk-bridge2.0-0 \
-    libgtk-3-0 \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    libasound2 \
-    libpangocairo-1.0-0 \
-    libcups2 \
-    libdrm2 \
-    libxshmfence1 \
     curl \
     git \
+    jq \
+    openssh-client \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Chromium path for agent-browser
-ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
-
-# Install agent-browser and claude-code globally
-RUN npm install -g agent-browser @anthropic-ai/claude-code
+# Install claude-code CLI globally (the CLI the runner spawns)
+RUN npm install -g @anthropic-ai/claude-code@latest
 
 # Create app directory
 WORKDIR /app
@@ -49,7 +30,11 @@ COPY agent-runner/ ./
 RUN npm run build
 
 # Create workspace directories
-RUN mkdir -p /workspace/group /workspace/global /workspace/extra /workspace/ipc/messages /workspace/ipc/tasks /workspace/ipc/input
+RUN mkdir -p /workspace/group /workspace/global /workspace/extra \
+    /workspace/ipc/messages /workspace/ipc/tasks /workspace/ipc/input
+
+# Create home dirs for node user
+RUN mkdir -p /home/node/.config /home/node/.aws /home/node/.claude
 
 # Create entrypoint script
 # Container input (prompt, group info) is passed via stdin JSON.
