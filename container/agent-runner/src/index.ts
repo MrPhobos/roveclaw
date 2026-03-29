@@ -452,6 +452,7 @@ async function runQuery(
   // Poll IPC during query, pipe follow-up messages to claude's stdin
   const pollIpcDuringQuery = () => {
     if (!ipcPolling) return;
+    const messages = drainIpcInput();
     if (shouldClose()) {
       log('Close sentinel detected during query, ending stdin');
       closedDuringQuery = true;
@@ -459,7 +460,6 @@ async function runQuery(
       child.stdin.end();
       return;
     }
-    const messages = drainIpcInput();
     for (const text of messages) {
       log(`Piping IPC message into active query (${text.length} chars)`);
       const msg = JSON.stringify({
@@ -573,7 +573,14 @@ async function runScript(script: string): Promise<ScriptResult | null> {
       {
         timeout: SCRIPT_TIMEOUT_MS,
         maxBuffer: 1024 * 1024,
-        env: process.env,
+        env: (() => {
+          const SECRET_ENV_VARS = ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_AUTH_TOKEN'];
+          const scriptEnv = { ...process.env };
+          for (const key of SECRET_ENV_VARS) {
+            delete scriptEnv[key];
+          }
+          return scriptEnv;
+        })(),
       },
       (error, stdout, stderr) => {
         if (stderr) {
