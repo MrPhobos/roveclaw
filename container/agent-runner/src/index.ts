@@ -363,11 +363,11 @@ function drainIpcInput(): string[] {
 function waitForIpcMessage(): Promise<string | null> {
   return new Promise((resolve) => {
     const poll = () => {
+      const messages = drainIpcInput();
       if (shouldClose()) {
         resolve(null);
         return;
       }
-      const messages = drainIpcInput();
       if (messages.length > 0) {
         resolve(messages.join('\n'));
         return;
