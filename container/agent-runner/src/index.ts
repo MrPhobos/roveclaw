@@ -53,7 +53,7 @@ const IPC_INPUT_CLOSE_SENTINEL = path.join(IPC_INPUT_DIR, '_close');
 const IPC_POLL_MS = 500;
 const MCP_CONFIG_PATH = '/workspace/group/.mcp.json';
 const SOUL_MD_PATH = '/workspace/group/SOUL.md';
-const BASH_HOOK_PATH = '/app/sanitize-env.sh';
+const BASH_HOOK_SCRIPT_PATH = '/tmp/hooks/sanitize-bash.js';
 
 const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
 const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
@@ -94,18 +94,56 @@ function writeMcpConfig(
 }
 
 /**
- * Write a bash pre-exec sanitization hook that strips credential env vars
- * from every Bash subprocess spawned by claude.
+ * Write a Node.js PreToolUse hook that strips credential env vars
+ * from every Bash command spawned by claude, via settings.json.
  */
 function writeBashSanitizationHook(): void {
-  const script = `#!/bin/bash
-# Strip credential env vars before every bash subprocess
-unset ANTHROPIC_API_KEY
-unset CLAUDE_CODE_OAUTH_TOKEN
-unset ANTHROPIC_AUTH_TOKEN
-exec "$@"
-`;
-  fs.writeFileSync(BASH_HOOK_PATH, script, { mode: 0o755 });
+  // Write the Node.js hook script
+  const hookScript = [
+    '#!/usr/bin/env node',
+    'const chunks = [];',
+    "process.stdin.on('data', (c) => chunks.push(c));",
+    "process.stdin.on('end', () => {",
+    '  const input = JSON.parse(Buffer.concat(chunks).toString());',
+    "  if (input.tool_input && typeof input.tool_input.command === 'string') {",
+    '    input.tool_input.command =',
+    "      'unset ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN ANTHROPIC_AUTH_TOKEN 2>/dev/null; ' +",
+    '      input.tool_input.command;',
+    '  }',
+    '  process.stdout.write(JSON.stringify(input));',
+    '});',
+  ].join('\n') + '\n';
+
+  fs.mkdirSync('/tmp/hooks', { recursive: true });
+  fs.writeFileSync(BASH_HOOK_SCRIPT_PATH, hookScript, { mode: 0o755 });
+
+  // Read existing settings.json (or start fresh)
+  const settingsPath = path.join(process.env.HOME || '/home/node', '.claude', 'settings.json');
+  let settings: Record<string, unknown> = {};
+  try {
+    settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+  } catch {
+    /* file may not exist yet */
+  }
+
+  // Merge PreToolUse hook for Bash
+  const hooks = (settings.hooks as Record<string, unknown>) || {};
+  const preToolUse = (hooks.PreToolUse as unknown[]) || [];
+
+  // Remove any existing Bash sanitization entry to avoid duplicates
+  const filtered = (preToolUse as Array<Record<string, unknown>>).filter((entry) => {
+    return !(entry.matcher === 'Bash' && JSON.stringify(entry.hooks).includes('sanitize-bash'));
+  });
+
+  filtered.push({
+    matcher: 'Bash',
+    hooks: [{ type: 'command', command: `node ${BASH_HOOK_SCRIPT_PATH}` }],
+  });
+
+  settings.hooks = { ...hooks, PreToolUse: filtered };
+
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 
 async function readStdin(): Promise<string> {
@@ -357,6 +395,7 @@ async function runQuery(
     '--input-format',
     'stream-json',
     '-p',
+    '--verbose',
   ];
 
   if (sessionId) {
@@ -394,7 +433,6 @@ async function runQuery(
     stdio: ['pipe', 'pipe', 'pipe'],
     env: {
       ...process.env,
-      CLAUDE_CODE_BASH_EXEC_HOOK: BASH_HOOK_PATH,
     },
   });
 
