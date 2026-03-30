@@ -29,7 +29,7 @@ Do not report roles from job boards that may be outdated.
 
 ## Company universe
 
-Maintain ~/openclaw/workspace/companies.md as a living list. Priorities:
+Maintain companies.md as a living list. Priorities:
 
 High priority (direct match):
 Flower (SE), Frank Energie (NL), Sympower (NL), Tibber (NO/NL), Jedlix (NL), Zonneplan (NL), NOX (NL), Spectral (NL), LichtBlick (DE), Next Kraftwerke (DE),
