@@ -1,4 +1,4 @@
-# NanoClaw Agent Container — Rove (CLI-only, no browser automation)
+# NanoClaw Agent Container -- Rove (CLI-only, no browser automation)
 # Runs Claude Code CLI in isolated Linux container
 
 FROM node:22-slim
@@ -36,17 +36,16 @@ RUN mkdir -p /workspace/group /workspace/global /workspace/extra \
 # Create home dirs for node user
 RUN mkdir -p /home/node/.config /home/node/.aws /home/node/.claude
 
-# Create entrypoint script
-# Container input (prompt, group info) is passed via stdin JSON.
-# Credentials are injected by the host's credential proxy — never passed here.
-# Follow-up messages arrive via IPC files in /workspace/ipc/input/
-RUN printf '#!/bin/bash\nset -e\ncd /app && npx tsc --outDir /tmp/dist 2>&1 >&2\nln -s /app/node_modules /tmp/dist/node_modules\nchmod -R a-w /tmp/dist\ncat > /tmp/input.json\nnode /tmp/dist/index.js < /tmp/input.json\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+# Root-level init script: fixes volume mount permissions, then drops to node user.
+# Required for macOS + Colima virtiofs where host-mounted dirs appear as root:root inside the guest VM.
+RUN printf '#!/bin/bash\nset -e\n# Fix permissions on mounted workspace dirs\n# Colima virtiofs maps the macOS host user to root inside the Linux VM,\n# so host-created dirs appear as root:root and block the node user.\nchmod -R a+rwx /workspace/group /workspace/ipc 2>/dev/null || true\n# Read stdin before dropping privileges\ncat > /tmp/input.json\nchown node:node /tmp/input.json\n# Run agent as node user using pre-built dist (avoids redundant tsc recompile)\nexec su node -s /bin/bash -c "node /app/dist/index.js < /tmp/input.json"\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Set ownership to node user (non-root) for writable directories
-RUN chown -R node:node /workspace && chmod 777 /home/node
+RUN chown -R node:node /workspace /home/node/.claude /home/node/.aws /home/node/.config && chmod 777 /home/node
 
-# Switch to non-root user (required for --dangerously-skip-permissions)
-USER node
+# Note: ENTRYPOINT runs as root to fix mount permissions, then drops to node user.
+# This is required for macOS + Colima virtiofs compatibility.
+# The claude CLI requires non-root for --dangerously-skip-permissions.
 
 # Set working directory to group workspace
 WORKDIR /workspace/group
