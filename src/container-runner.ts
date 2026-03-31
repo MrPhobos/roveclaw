@@ -246,15 +246,9 @@ async function buildContainerArgs(
   // Runtime-specific args for host gateway resolution
   args.push(...hostGatewayArgs());
 
-  // Run as host user so bind-mounted files are accessible.
-  // Skip when running as root (uid 0), as the container's node user (uid 1000),
-  // or when getuid is unavailable (native Windows without WSL).
-  const hostUid = process.getuid?.();
-  const hostGid = process.getgid?.();
-  if (hostUid != null && hostUid !== 0 && hostUid !== 1000) {
-    args.push('--user', `${hostUid}:${hostGid}`);
-    args.push('-e', 'HOME=/home/node');
-  }
+  // Note: --user flag omitted intentionally for macOS + Colima virtiofs.
+  // The entrypoint runs as root to fix mount permissions, then drops to node user.
+  // Passing --user would prevent the entrypoint from running as root and break chown.
 
   for (const mount of mounts) {
     if (mount.readonly) {
