@@ -52,7 +52,7 @@ const IPC_INPUT_DIR = '/workspace/ipc/input';
 const IPC_INPUT_CLOSE_SENTINEL = path.join(IPC_INPUT_DIR, '_close');
 const IPC_POLL_MS = 500;
 const MCP_CONFIG_PATH = '/workspace/group/.mcp.json';
-const SOUL_MD_PATH = '/workspace/group/SOUL.md';
+const SOUL_MD_PATH = '/workspace/global/SOUL.md';
 const BASH_HOOK_SCRIPT_PATH = '/tmp/hooks/sanitize-bash.js';
 
 const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
