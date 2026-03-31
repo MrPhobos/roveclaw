@@ -227,6 +227,17 @@ function buildVolumeMounts(
     });
   }
 
+  // Mount host ~/.claude.json read-only. Entrypoint copies to /home/node/.claude.json
+  // so claude can read feature flags and account info (writable copy per container).
+  const claudeJsonPath = path.join(os.homedir(), '.claude.json');
+  if (fs.existsSync(claudeJsonPath)) {
+    mounts.push({
+      hostPath: claudeJsonPath,
+      containerPath: '/home/node/.claude-host-config.json',
+      readonly: true,
+    });
+  }
+
   return mounts;
 }
 
