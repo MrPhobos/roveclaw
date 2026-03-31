@@ -240,8 +240,6 @@ async function buildContainerArgs(
   // Pass host timezone so container's local time matches the user's
   args.push('-e', `TZ=${TIMEZONE}`);
 
-  // Point claude CLI to the read-only credential mount
-  args.push('-e', 'CLAUDE_CONFIG_DIR=/home/node/.claude-host-creds');
 
   // Runtime-specific args for host gateway resolution
   args.push(...hostGatewayArgs());
