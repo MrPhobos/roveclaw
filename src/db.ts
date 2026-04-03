@@ -82,6 +82,11 @@ function createSchema(database: Database.Database): void {
       container_config TEXT,
       requires_trigger INTEGER DEFAULT 1
     );
+    CREATE TABLE IF NOT EXISTS linkedin_calls (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      called_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_linkedin_calls_called_at ON linkedin_calls(called_at);
   `);
 
   // Add context_mode column if it doesn't exist (migration for existing DBs)
@@ -157,6 +162,11 @@ export function initDatabase(): void {
 
   // Migrate from JSON files if they exist
   migrateJsonState();
+}
+
+export function getDatabase(): InstanceType<typeof Database> {
+  if (!db) throw new Error('Database not initialized — call initDatabase() first');
+  return db;
 }
 
 /** @internal - for tests only. Creates a fresh in-memory database. */

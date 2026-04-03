@@ -64,4 +64,28 @@ describe('database migrations', () => {
       process.chdir(repoRoot);
     }
   });
+
+  it('creates linkedin_calls table', async () => {
+    const repoRoot = process.cwd();
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nanoclaw-db-linkedin-test-'));
+    try {
+      process.chdir(tempDir);
+      fs.mkdirSync(path.join(tempDir, 'store'), { recursive: true });
+      const dbPath = path.join(tempDir, 'store', 'messages.db');
+      const freshDb = new Database(dbPath);
+      freshDb.close();
+      // Re-import to get a fresh initDatabase on the new path
+      vi.resetModules();
+      const { initDatabase: init } = await import('./db.js');
+      init();
+      const checkDb = new Database(dbPath);
+      const row = checkDb
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='linkedin_calls'")
+        .get();
+      checkDb.close();
+      expect(row).toBeDefined();
+    } finally {
+      process.chdir(repoRoot);
+    }
+  });
 });
