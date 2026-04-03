@@ -67,7 +67,9 @@ describe('database migrations', () => {
 
   it('creates linkedin_calls table', async () => {
     const repoRoot = process.cwd();
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nanoclaw-db-linkedin-test-'));
+    const tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'nanoclaw-db-linkedin-test-'),
+    );
     try {
       process.chdir(tempDir);
       fs.mkdirSync(path.join(tempDir, 'store'), { recursive: true });
@@ -76,13 +78,16 @@ describe('database migrations', () => {
       freshDb.close();
       // Re-import to get a fresh initDatabase on the new path
       vi.resetModules();
-      const { initDatabase: init } = await import('./db.js');
+      const { initDatabase: init, _closeDatabase } = await import('./db.js');
       init();
       const checkDb = new Database(dbPath);
       const row = checkDb
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='linkedin_calls'")
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='linkedin_calls'"
+        )
         .get();
       checkDb.close();
+      _closeDatabase();
       expect(row).toBeDefined();
     } finally {
       process.chdir(repoRoot);
