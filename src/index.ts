@@ -60,6 +60,9 @@ import {
 import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { logger } from './logger.js';
+import { createLinkedInProxy } from './linkedin-proxy.js';
+import { LinkedInRateLimiter } from './linkedin-rate-limiter.js';
+import { getDatabase } from './db.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -523,6 +526,17 @@ async function main(): Promise<void> {
   ensureContainerSystemRunning();
   initDatabase();
   logger.info('Database initialized');
+
+  const linkedInLimiter = new LinkedInRateLimiter(getDatabase(), 15);
+  const linkedInProxy = createLinkedInProxy({
+    limiter: linkedInLimiter,
+    upstreamPort: 8080,
+    port: 8081,
+  });
+  linkedInProxy.listen(8081, () => {
+    logger.info('LinkedIn MCP proxy listening on port 8081');
+  });
+
   loadState();
 
   restoreRemoteControl();
@@ -530,6 +544,7 @@ async function main(): Promise<void> {
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
+    await new Promise<void>((resolve) => linkedInProxy.close(() => resolve()));
     await queue.shutdown(10000);
     for (const ch of channels) await ch.disconnect();
     process.exit(0);
