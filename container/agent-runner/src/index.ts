@@ -426,6 +426,19 @@ async function runQuery(
     }
   }
 
+  // LinkedIn tool allowlist — defense-in-depth on top of proxy enforcement
+  args.push(
+    '--allowedTools',
+    [
+      'mcp__linkedin__search_jobs',
+      'mcp__linkedin__get_job_details',
+      'mcp__linkedin__get_company_profile',
+      'mcp__linkedin__search_people',
+      'mcp__linkedin__get_person_profile',
+      'mcp__linkedin__close_session',
+    ].join(','),
+  );
+
   log(`Spawning claude CLI (session: ${sessionId || 'new'})...`);
 
   const child = spawn('claude', args, {
