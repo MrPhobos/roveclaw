@@ -60,6 +60,7 @@ import {
 import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { logger } from './logger.js';
+import { WatchtowerReporter } from './reporter.js';
 import { createLinkedInProxy } from './linkedin-proxy.js';
 import { LinkedInRateLimiter } from './linkedin-rate-limiter.js';
 import { getDatabase } from './db.js';
@@ -75,6 +76,7 @@ let messageLoopRunning = false;
 
 const channels: Channel[] = [];
 const queue = new GroupQueue();
+let watchtower: WatchtowerReporter;
 
 function loadState(): void {
   lastTimestamp = getRouterState('last_timestamp') || '';
@@ -239,6 +241,12 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     'Processing messages',
   );
 
+  watchtower.send({
+    event_type: 'phase_change',
+    summary: `Container spawned for ${group.name}`,
+    entities: [{ type: 'agent', id: group.folder }],
+  });
+
   // Track idle timer for closing stdin when agent is idle
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -382,12 +390,22 @@ async function runAgent(
         { group: group.name, error: output.error },
         'Container agent error',
       );
+      watchtower.send({
+        event_type: 'error',
+        summary: `Container error for ${group.name}: ${output.error}`,
+        entities: [{ type: 'agent', id: group.folder }],
+      });
       return 'error';
     }
 
     return 'success';
   } catch (err) {
     logger.error({ group: group.name, err }, 'Agent error');
+    watchtower.send({
+      event_type: 'error',
+      summary: `Agent error for ${group.name}: ${err instanceof Error ? err.message : String(err)}`,
+      entities: [{ type: 'agent', id: group.folder }],
+    });
     return 'error';
   }
 }
@@ -527,6 +545,17 @@ async function main(): Promise<void> {
   initDatabase();
   logger.info('Database initialized');
 
+  watchtower = new WatchtowerReporter({
+    url: process.env.WATCHTOWER_URL ?? 'http://localhost:8400',
+    auth: process.env.WATCHTOWER_AUTH ?? 'admin:changeme',
+    agentId: 'rove',
+    agentName: 'Rove',
+    device: 'imac',
+  });
+
+  watchtower.send({ event_type: 'session_start', summary: 'Roveclaw started' });
+  const heartbeatInterval = watchtower.startHeartbeatLoop(30000);
+
   const linkedInLimiter = new LinkedInRateLimiter(getDatabase(), 15);
   const linkedInProxy = createLinkedInProxy({
     limiter: linkedInLimiter,
@@ -544,6 +573,8 @@ async function main(): Promise<void> {
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
+    clearInterval(heartbeatInterval);
+    await watchtower.send({ event_type: 'session_end', summary: 'Roveclaw shutting down' });
     await new Promise<void>((resolve) => linkedInProxy.close(() => resolve()));
     await queue.shutdown(10000);
     for (const ch of channels) await ch.disconnect();
