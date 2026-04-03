@@ -15,6 +15,12 @@ interface ProxyConfig {
   limiter: LinkedInRateLimiter;
   upstreamPort: number;
   port: number;
+  onEvent?: (event: {
+    type: string;
+    toolName: string;
+    remaining?: number;
+    blocked?: boolean;
+  }) => void;
 }
 
 function jsonRpcError(id: unknown, code: number, message: string): string {
@@ -32,9 +38,27 @@ export function createLinkedInProxy(config: ProxyConfig): http.Server {
     }
 
     let body = '';
-    req.on('data', (chunk) => (body += chunk));
+    let bodyBytes = 0;
+    const MAX_BODY_BYTES = 1_048_576; // 1 MB
+    req.on('data', (chunk: Buffer) => {
+      bodyBytes += chunk.byteLength;
+      if (bodyBytes > MAX_BODY_BYTES) {
+        req.destroy();
+        if (!res.headersSent) {
+          res.writeHead(413);
+          res.end();
+        }
+        return;
+      }
+      body += chunk;
+    });
     req.on('end', () => {
-      let parsed: { jsonrpc: string; id: unknown; method: string; params?: { name?: string } };
+      let parsed: {
+        jsonrpc: string;
+        id: unknown;
+        method: string;
+        params?: { name?: string };
+      };
       try {
         parsed = JSON.parse(body);
       } catch {
@@ -48,20 +72,51 @@ export function createLinkedInProxy(config: ProxyConfig): http.Server {
 
         if (!ALLOWED_TOOLS.has(toolName)) {
           logger.warn({ toolName }, 'LinkedIn proxy: blocked disallowed tool');
+          config.onEvent?.({
+            type: 'blocked_tool',
+            toolName,
+            blocked: true,
+          });
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(jsonRpcError(parsed.id, -32601, `Tool '${toolName}' is not permitted`));
+          res.end(
+            jsonRpcError(
+              parsed.id,
+              -32601,
+              `Tool '${toolName}' is not permitted`,
+            ),
+          );
           return;
         }
 
         const rateResult = limiter.tryConsume();
         if (!rateResult.allowed) {
           logger.warn('LinkedIn proxy: daily limit reached');
+          config.onEvent?.({
+            type: 'rate_limited',
+            toolName,
+            blocked: true,
+          });
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(jsonRpcError(parsed.id, -32000, 'LinkedIn daily limit reached. Use web search instead.'));
+          res.end(
+            jsonRpcError(
+              parsed.id,
+              -32000,
+              'LinkedIn daily limit reached. Use web search instead.',
+            ),
+          );
           return;
         }
 
-        logger.debug({ toolName, remaining: rateResult.remaining }, 'LinkedIn proxy: forwarding');
+        logger.debug(
+          { toolName, remaining: rateResult.remaining },
+          'LinkedIn proxy: forwarding',
+        );
+
+        config.onEvent?.({
+          type: 'forwarded',
+          toolName,
+          remaining: rateResult.remaining,
+        });
       }
 
       const upstreamReq = http.request(
@@ -70,7 +125,10 @@ export function createLinkedInProxy(config: ProxyConfig): http.Server {
           port: upstreamPort,
           path: '/mcp',
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(body),
+          },
         },
         (upstreamRes) => {
           res.writeHead(upstreamRes.statusCode ?? 200, upstreamRes.headers);
@@ -78,8 +136,14 @@ export function createLinkedInProxy(config: ProxyConfig): http.Server {
         },
       );
       upstreamReq.on('error', () => {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(jsonRpcError(parsed.id, -32603, 'LinkedIn MCP server unavailable'));
+        if (!res.headersSent) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(
+            jsonRpcError(parsed.id, -32603, 'LinkedIn MCP server unavailable'),
+          );
+        } else {
+          res.destroy();
+        }
       });
       upstreamReq.write(body);
       upstreamReq.end();

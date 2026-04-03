@@ -561,6 +561,17 @@ async function main(): Promise<void> {
     limiter: linkedInLimiter,
     upstreamPort: 8080,
     port: 8081,
+    onEvent: (event) => {
+      watchtower.send({
+        event_type: 'service_call',
+        summary:
+          event.type === 'forwarded'
+            ? `LinkedIn ${event.toolName} (${event.remaining} remaining)`
+            : `LinkedIn ${event.toolName} blocked: ${event.type}`,
+        details: event,
+        entities: [{ type: 'service', id: 'linkedin-mcp' }],
+      });
+    },
   });
   linkedInProxy.listen(8081, () => {
     logger.info('LinkedIn MCP proxy listening on port 8081');
