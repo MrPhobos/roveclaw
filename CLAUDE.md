@@ -21,6 +21,13 @@ Single Node.js process with skill-based channel system. Channels (WhatsApp, Tele
 | `groups/{name}/CLAUDE.md` | Per-group memory (isolated) |
 | `container/skills/` | Skills loaded inside agent containers (browser, status, formatting) |
 
+## Watchtower Integration
+
+Roveclaw reports events to Watchtower (localhost:8400) via `src/reporter.ts`.
+Events: session_start/end, container lifecycle, retry, LinkedIn proxy calls.
+Heartbeat every 30s. Auth via `WATCHTOWER_AUTH` env var in LaunchAgent plist.
+Fire-and-forget - Roveclaw continues normally if Watchtower is down.
+
 ## Secrets / Credentials / Proxy (OneCLI)
 
 API keys, secret keys, OAuth tokens, and auth credentials are managed by the OneCLI gateway — which handles secret injection into containers at request time, so no keys or tokens are ever passed to containers directly. Run `onecli --help`.
@@ -50,6 +57,10 @@ Before creating a PR, adding a skill, or preparing any contribution, you MUST re
 
 ## Development
 
+**iMac SSH sessions:** Always set PATH before git/npm commands:
+`export PATH="/usr/local/bin:$HOME/.nvm/versions/node/v24.14.0/bin:$PATH"`
+Without this, husky pre-commit hooks fail with `npm: command not found`.
+
 Run commands directly—don't tell the user to run them.
 
 ```bash
@@ -64,6 +75,7 @@ Service management:
 launchctl load ~/Library/LaunchAgents/com.nanoclaw.plist
 launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist
 launchctl kickstart -k gui/$(id -u)/com.nanoclaw  # restart
+# To pick up new env vars, must unload/load (stop/start is not enough)
 
 # Linux (systemd)
 systemctl --user start nanoclaw
