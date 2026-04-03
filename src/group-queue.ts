@@ -34,6 +34,23 @@ export class GroupQueue {
   private processMessagesFn: ((groupJid: string) => Promise<boolean>) | null =
     null;
   private shuttingDown = false;
+  private onRetryCallback?: (event: {
+    groupJid: string;
+    retryCount: number;
+    error: string;
+    isMax: boolean;
+  }) => void;
+
+  setOnRetry(
+    fn: (event: {
+      groupJid: string;
+      retryCount: number;
+      error: string;
+      isMax: boolean;
+    }) => void,
+  ): void {
+    this.onRetryCallback = fn;
+  }
 
   private getGroup(groupJid: string): GroupState {
     let state = this.groups.get(groupJid);
@@ -267,6 +284,12 @@ export class GroupQueue {
         { groupJid, retryCount: state.retryCount },
         'Max retries exceeded, dropping messages (will retry on next incoming message)',
       );
+      this.onRetryCallback?.({
+        groupJid,
+        retryCount: state.retryCount,
+        error: 'Max retries exceeded',
+        isMax: true,
+      });
       state.retryCount = 0;
       return;
     }
@@ -276,6 +299,12 @@ export class GroupQueue {
       { groupJid, retryCount: state.retryCount, delayMs },
       'Scheduling retry with backoff',
     );
+    this.onRetryCallback?.({
+      groupJid,
+      retryCount: state.retryCount,
+      error: 'Container processing failed',
+      isMax: false,
+    });
     setTimeout(() => {
       if (!this.shuttingDown) {
         this.enqueueMessageCheck(groupJid);

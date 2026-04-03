@@ -574,7 +574,10 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
     clearInterval(heartbeatInterval);
-    await watchtower.send({ event_type: 'session_end', summary: 'Roveclaw shutting down' });
+    await watchtower.send({
+      event_type: 'session_end',
+      summary: 'Roveclaw shutting down',
+    });
     await new Promise<void>((resolve) => linkedInProxy.close(() => resolve()));
     await queue.shutdown(10000);
     for (const ch of channels) await ch.disconnect();
