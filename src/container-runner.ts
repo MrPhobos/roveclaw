@@ -15,15 +15,18 @@ import {
   GROUPS_DIR,
   IDLE_TIMEOUT,
   TIMEZONE,
+  CREDENTIAL_PROXY_PORT,
 } from './config.js';
 import { resolveGroupFolderPath, resolveGroupIpcPath } from './group-folder.js';
 import { logger } from './logger.js';
 import {
+  CONTAINER_HOST_GATEWAY,
   CONTAINER_RUNTIME_BIN,
   hostGatewayArgs,
   readonlyMountArgs,
   stopContainer,
 } from './container-runtime.js';
+import { detectAuthMode } from './credential-proxy.js';
 import { validateAdditionalMounts } from './mount-security.js';
 import { RegisteredGroup } from './types.js';
 
@@ -215,14 +218,16 @@ function buildVolumeMounts(
     mounts.push(...validatedMounts);
   }
 
-  // Mount host Claude OAuth credentials read-only.
-  // The claude CLI subprocess reads from here to authenticate.
+  // Mount host Claude OAuth credentials read-write so containers can refresh
+  // the auth token when it expires. Entrypoint copies the credentials in at
+  // startup (so the node user has a writable copy), then copies them back out
+  // after claude exits so refreshed tokens persist to the host file.
   const claudeCredentialsDir = path.join(os.homedir(), '.claude');
   if (fs.existsSync(claudeCredentialsDir)) {
     mounts.push({
       hostPath: claudeCredentialsDir,
       containerPath: '/home/node/.claude-host-creds',
-      readonly: true,
+      readonly: false,
     });
   }
 
