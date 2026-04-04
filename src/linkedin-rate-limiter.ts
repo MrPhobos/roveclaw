@@ -15,7 +15,9 @@ export class LinkedInRateLimiter {
   }
 
   tryConsume(): RateLimitResult {
-    const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const windowStart = new Date(
+      Date.now() - 24 * 60 * 60 * 1000,
+    ).toISOString();
     const { n: count } = this.db
       .prepare('SELECT COUNT(*) as n FROM linkedin_calls WHERE called_at > ?')
       .get(windowStart) as { n: number };

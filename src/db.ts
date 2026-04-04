@@ -165,7 +165,8 @@ export function initDatabase(): void {
 }
 
 export function getDatabase(): InstanceType<typeof Database> {
-  if (!db) throw new Error('Database not initialized — call initDatabase() first');
+  if (!db)
+    throw new Error('Database not initialized — call initDatabase() first');
   return db;
 }
 

@@ -83,7 +83,7 @@ describe('database migrations', () => {
       const checkDb = new Database(dbPath);
       const row = checkDb
         .prepare(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name='linkedin_calls'"
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='linkedin_calls'",
         )
         .get();
       checkDb.close();

@@ -1,5 +1,5 @@
-import http from "http";
-import { logger } from "./logger.js";
+import http from 'http';
+import { logger } from './logger.js';
 
 interface ReporterConfig {
   url: string;
@@ -41,11 +41,11 @@ export class WatchtowerReporter {
       ...payload,
     };
 
-    await this.post("/api/events", event);
+    await this.post('/api/events', event);
   }
 
   async heartbeat(status: string): Promise<void> {
-    await this.post("/api/heartbeat", {
+    await this.post('/api/heartbeat', {
       agent_id: this.config.agentId,
       status,
     });
@@ -53,7 +53,7 @@ export class WatchtowerReporter {
 
   startHeartbeatLoop(intervalMs = 30000): NodeJS.Timeout {
     return setInterval(() => {
-      this.heartbeat("active").catch(() => {});
+      this.heartbeat('active').catch(() => {});
     }, intervalMs);
   }
 
@@ -66,13 +66,13 @@ export class WatchtowerReporter {
           hostname: urlObj.hostname,
           port: urlObj.port,
           path,
-          method: "POST",
+          method: 'POST',
           timeout: 5000,
           headers: {
-            "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(data),
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(data),
             Authorization:
-              "Basic " + Buffer.from(this.config.auth).toString("base64"),
+              'Basic ' + Buffer.from(this.config.auth).toString('base64'),
           },
         },
         (res) => {
@@ -80,12 +80,12 @@ export class WatchtowerReporter {
           resolve();
         },
       );
-      req.on("timeout", () => {
+      req.on('timeout', () => {
         req.destroy();
         resolve();
       });
-      req.on("error", (err) => {
-        logger.debug({ err: err.message }, "Watchtower reporter: send failed");
+      req.on('error', (err) => {
+        logger.debug({ err: err.message }, 'Watchtower reporter: send failed');
         resolve();
       });
       req.write(data);

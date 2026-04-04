@@ -676,10 +676,9 @@ async function main(): Promise<void> {
       // Sender allowlist drop mode: discard messages from denied senders before storing
       if (!msg.is_from_me && !msg.is_bot_message && registeredGroups[chatJid]) {
         const cfg = loadSenderAllowlist();
-        if (
-          shouldDropMessage(chatJid, cfg) &&
-          !isSenderAllowed(chatJid, msg.sender, cfg)
-        ) {
+        const shouldDrop = shouldDropMessage(chatJid, cfg);
+        const isAllowed = isSenderAllowed(chatJid, msg.sender, cfg);
+        if (shouldDrop && !isAllowed) {
           if (cfg.logDenied) {
             logger.debug(
               { chatJid, sender: msg.sender },
@@ -689,7 +688,13 @@ async function main(): Promise<void> {
           return;
         }
       }
+      logger.info({
+        chatJid: msg.chat_jid,
+        msgId: msg.id,
+        content: msg.content.slice(0, 30),
+      });
       storeMessage(msg);
+      logger.info({ chatJid: msg.chat_jid, msgId: msg.id });
     },
     onChatMetadata: (
       chatJid: string,

@@ -38,7 +38,10 @@ function readOAuthTokenFromCredentials(): string | null {
     const data = JSON.parse(content);
     return data?.claudeAiOauth?.accessToken || null;
   } catch (err) {
-    logger.warn({ err, path: credPath }, 'Failed to read OAuth credentials file');
+    logger.warn(
+      { err, path: credPath },
+      'Failed to read OAuth credentials file',
+    );
     return null;
   }
 }
@@ -47,10 +50,7 @@ export function startCredentialProxy(
   port: number,
   host = '127.0.0.1',
 ): Promise<Server> {
-  const secrets = readEnvFile([
-    'ANTHROPIC_API_KEY',
-    'ANTHROPIC_BASE_URL',
-  ]);
+  const secrets = readEnvFile(['ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL']);
 
   const authMode: AuthMode = secrets.ANTHROPIC_API_KEY ? 'api-key' : 'oauth';
 
