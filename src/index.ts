@@ -60,6 +60,8 @@ import {
 import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { logger } from './logger.js';
+import { prepareBobWorkspace } from './bob-integration.js';
+import { cleanupWorktree } from './repo-manager.js';
 import { WatchtowerReporter } from './reporter.js';
 import { createLinkedInProxy } from './linkedin-proxy.js';
 import { LinkedInRateLimiter } from './linkedin-rate-limiter.js';
@@ -364,11 +366,16 @@ async function runAgent(
       }
     : undefined;
 
+  // Bob integration: prepare repo workspace if this is Bob's group
+  const bobWorkspace = prepareBobWorkspace(group, prompt, GROUPS_DIR);
+  const effectiveGroup = bobWorkspace ? bobWorkspace.modifiedGroup : group;
+  const effectivePrompt = bobWorkspace ? bobWorkspace.modifiedPrompt : prompt;
+
   try {
     const output = await runContainerAgent(
-      group,
+      effectiveGroup,
       {
-        prompt,
+        prompt: effectivePrompt,
         sessionId,
         groupFolder: group.folder,
         chatJid,
@@ -407,6 +414,11 @@ async function runAgent(
       entities: [{ type: 'agent', id: group.folder }],
     });
     return 'error';
+  } finally {
+    // Clean up Bob's worktree after container completes (success or error)
+    if (bobWorkspace) {
+      cleanupWorktree(bobWorkspace.repoDir, bobWorkspace.jobId);
+    }
   }
 }
 
