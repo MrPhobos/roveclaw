@@ -10,6 +10,7 @@ import {
   MAX_MESSAGES_PER_PROMPT,
   POLL_INTERVAL,
   TIMEZONE,
+  CREDENTIAL_PROXY_PORT,
 } from './config.js';
 import './channels/index.js';
 import {
@@ -26,6 +27,7 @@ import {
   cleanupOrphans,
   ensureContainerRuntimeRunning,
 } from './container-runtime.js';
+import { PROXY_BIND_HOST } from './container-runtime.js';
 import {
   getAllChats,
   getAllRegisteredGroups,
@@ -42,6 +44,7 @@ import {
   storeChatMetadata,
   storeMessage,
 } from './db.js';
+import { startCredentialProxy } from './credential-proxy.js';
 import { GroupQueue } from './group-queue.js';
 import { resolveGroupFolderPath } from './group-folder.js';
 import { startIpcWatcher } from './ipc.js';
@@ -593,10 +596,17 @@ async function main(): Promise<void> {
 
   restoreRemoteControl();
 
+  // Start credential proxy (containers route API calls through this)
+  const proxyServer = await startCredentialProxy(
+    CREDENTIAL_PROXY_PORT,
+    PROXY_BIND_HOST,
+  );
+
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
     clearInterval(heartbeatInterval);
+    proxyServer.close();
     await watchtower.send({
       event_type: 'session_end',
       summary: 'Roveclaw shutting down',
