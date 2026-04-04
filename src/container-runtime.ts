@@ -10,6 +10,21 @@ import { logger } from './logger.js';
 /** The container runtime binary name. */
 export const CONTAINER_RUNTIME_BIN = 'docker';
 
+/**
+ * Hostname containers use to reach the host machine.
+ * Docker Desktop (macOS): host.docker.internal resolves automatically.
+ * Colima (macOS): same - the VM maps it to the host.
+ */
+export const CONTAINER_HOST_GATEWAY = 'host.docker.internal';
+
+/**
+ * Address the credential proxy binds to.
+ * 127.0.0.1 is safe on macOS + Colima because host.docker.internal
+ * resolves to the host loopback from inside the VM.
+ */
+export const PROXY_BIND_HOST =
+  process.env.CREDENTIAL_PROXY_HOST || '127.0.0.1';
+
 /** CLI args needed for the container to resolve the host gateway. */
 export function hostGatewayArgs(): string[] {
   // On Linux, host.docker.internal isn't built-in — add it explicitly
