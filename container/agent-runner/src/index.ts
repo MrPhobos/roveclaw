@@ -402,10 +402,17 @@ async function runQuery(
     args.push('--resume', sessionId);
   }
 
-  // Load SOUL.md as appended system prompt if present
+  // Load global SOUL.md as appended system prompt if present
   if (fs.existsSync(SOUL_MD_PATH)) {
     const soulContent = fs.readFileSync(SOUL_MD_PATH, 'utf-8');
     args.push('--append-system-prompt', soulContent);
+  }
+
+  // Load per-group SOUL.md (overrides/supplements global persona)
+  const groupSoulPath = '/workspace/group/SOUL.md';
+  if (fs.existsSync(groupSoulPath)) {
+    const groupSoul = fs.readFileSync(groupSoulPath, 'utf-8');
+    args.push('--append-system-prompt', groupSoul);
   }
 
   // Load global CLAUDE.md as additional system context (for non-main groups)
