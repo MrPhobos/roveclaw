@@ -50,6 +50,8 @@ export interface ContainerOutput {
   result: string | null;
   newSessionId?: string;
   error?: string;
+  stdout?: string;
+  startedAt?: number;
 }
 
 interface VolumeMount {
@@ -612,6 +614,8 @@ export async function runContainerAgent(
             status: 'success',
             result: null,
             newSessionId,
+            stdout,
+            startedAt: startTime,
           });
         });
         return;
@@ -646,7 +650,7 @@ export async function runContainerAgent(
           'Container completed',
         );
 
-        resolve(output);
+        resolve({ ...output, stdout, startedAt: startTime });
       } catch (err) {
         logger.error(
           {

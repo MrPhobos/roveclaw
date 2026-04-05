@@ -66,7 +66,8 @@ import { logger } from './logger.js';
 import { prepareBobWorkspace } from './bob-integration.js';
 import { prepareArgusWorkspace } from './argus-integration.js';
 import { cleanupWorktree } from './repo-manager.js';
-import { WatchtowerReporter } from './reporter.js';
+import { WatchtowerReporter, createGroupReporter } from './reporter.js';
+import { condenseContent } from './condense.js';
 import { createLinkedInProxy } from './linkedin-proxy.js';
 import { LinkedInRateLimiter } from './linkedin-rate-limiter.js';
 import { getDatabase } from './db.js';
@@ -83,6 +84,7 @@ let messageLoopRunning = false;
 const channels: Channel[] = [];
 const queue = new GroupQueue();
 let watchtower: WatchtowerReporter;
+let watchtowerBaseConfig: { url: string; auth: string; device: string };
 
 function loadState(): void {
   lastTimestamp = getRouterState('last_timestamp') || '';
@@ -247,10 +249,10 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     'Processing messages',
   );
 
-  watchtower.send({
-    event_type: 'phase_change',
+  const groupReporter = createGroupReporter(watchtowerBaseConfig, group.folder, group.name);
+  groupReporter.send({
+    event_type: 'session_start',
     summary: `Container spawned for ${group.name}`,
-    entities: [{ type: 'agent', id: group.folder }],
   });
 
   // Track idle timer for closing stdin when agent is idle
@@ -271,7 +273,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   let hadError = false;
   let outputSentToUser = false;
 
-  const output = await runAgent(group, prompt, chatJid, async (result) => {
+  const output = await runAgent(group, prompt, chatJid, groupReporter, async (result) => {
     // Streaming output callback — called for each agent result
     if (result.result) {
       const raw =
@@ -328,6 +330,7 @@ async function runAgent(
   group: RegisteredGroup,
   prompt: string,
   chatJid: string,
+  groupReporter: WatchtowerReporter,
   onOutput?: (output: ContainerOutput) => Promise<void>,
 ): Promise<'success' | 'error'> {
   const isMain = group.isMain === true;
@@ -403,21 +406,39 @@ async function runAgent(
         { group: group.name, error: output.error },
         'Container agent error',
       );
-      watchtower.send({
+      groupReporter.send({
         event_type: 'error',
         summary: `Container error for ${group.name}: ${output.error}`,
-        entities: [{ type: 'agent', id: group.folder }],
       });
       return 'error';
+    }
+
+    // Ship condensed transcript to Watchtower
+    if (output.stdout) {
+      try {
+        const condensed = condenseContent(output.stdout);
+        if (condensed) {
+          await groupReporter.sendTranscript({
+            agent_id: group.folder.replace(/^telegram_/, ''),
+            parent_agent_id: 'roveclaw',
+            session_id: output.newSessionId,
+            started_at: output.startedAt ? new Date(output.startedAt).toISOString() : new Date().toISOString(),
+            ended_at: new Date().toISOString(),
+            summary: String(output.result || '').slice(0, 200),
+            content: condensed,
+          });
+        }
+      } catch {
+        // best-effort
+      }
     }
 
     return 'success';
   } catch (err) {
     logger.error({ group: group.name, err }, 'Agent error');
-    watchtower.send({
+    groupReporter.send({
       event_type: 'error',
       summary: `Agent error for ${group.name}: ${err instanceof Error ? err.message : String(err)}`,
-      entities: [{ type: 'agent', id: group.folder }],
     });
     return 'error';
   } finally {
@@ -567,12 +588,16 @@ async function main(): Promise<void> {
   initDatabase();
   logger.info('Database initialized');
 
-  watchtower = new WatchtowerReporter({
+  watchtowerBaseConfig = {
     url: process.env.WATCHTOWER_URL ?? 'http://localhost:8400',
     auth: process.env.WATCHTOWER_AUTH ?? 'admin:changeme',
-    agentId: 'rove',
-    agentName: 'Rove',
     device: 'imac',
+  };
+
+  watchtower = new WatchtowerReporter({
+    ...watchtowerBaseConfig,
+    agentId: 'roveclaw',
+    agentName: 'Roveclaw',
   });
 
   watchtower.send({ event_type: 'session_start', summary: 'Roveclaw started' });

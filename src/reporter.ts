@@ -57,6 +57,19 @@ export class WatchtowerReporter {
     }, intervalMs);
   }
 
+
+  async sendTranscript(payload: {
+    agent_id: string;
+    parent_agent_id?: string;
+    session_id?: string;
+    started_at: string;
+    ended_at: string;
+    summary?: string;
+    content: string;
+  }): Promise<void> {
+    await this.post('/api/transcripts', payload);
+  }
+
   private post(path: string, body: unknown): Promise<void> {
     return new Promise((resolve) => {
       const urlObj = new URL(this.config.url);
@@ -92,4 +105,17 @@ export class WatchtowerReporter {
       req.end();
     });
   }
+}
+
+export function createGroupReporter(
+  baseConfig: { url: string; auth: string; device: string },
+  groupFolder: string,
+  groupName: string,
+): WatchtowerReporter {
+  return new WatchtowerReporter({
+    ...baseConfig,
+    agentId: groupFolder.replace(/^telegram_/, ''),
+    agentName: groupName,
+    parentAgentId: 'roveclaw',
+  });
 }
