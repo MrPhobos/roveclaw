@@ -70,14 +70,28 @@ function log(message: string): void {
 
 /**
  * Write .mcp.json to /workspace/group/ so the claude CLI picks it up.
- * Uses env var names that ipc-mcp-stdio.ts reads.
+ * Reads any existing .mcp.json from the group folder first and merges
+ * additional MCP servers (e.g. watchtower) alongside the nanoclaw server.
+ * The nanoclaw entry always overrides any existing nanoclaw config.
  */
 function writeMcpConfig(
   containerInput: ContainerInput,
   mcpServerPath: string,
 ): void {
+  // Read existing .mcp.json from group mount (may have extra servers)
+  let existingServers: Record<string, unknown> = {};
+  try {
+    const existing = JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf-8'));
+    if (existing?.mcpServers && typeof existing.mcpServers === 'object') {
+      existingServers = existing.mcpServers;
+    }
+  } catch {
+    // No existing file or invalid JSON - start fresh
+  }
+
   const config = {
     mcpServers: {
+      ...existingServers,
       nanoclaw: {
         command: 'node',
         args: [mcpServerPath],
