@@ -163,6 +163,16 @@ function buildVolumeMounts(
     readonly: false,
   });
 
+  // Mount plugins directory (superpowers, etc.) read-only into container
+  const pluginsSrc = path.join(process.cwd(), 'container', 'plugins');
+  if (fs.existsSync(pluginsSrc)) {
+    mounts.push({
+      hostPath: pluginsSrc,
+      containerPath: '/workspace/plugins',
+      readonly: true,
+    });
+  }
+
   // Per-group IPC namespace: each group gets its own IPC directory
   // This prevents cross-group privilege escalation via IPC
   const groupIpcDir = resolveGroupIpcPath(group.folder);

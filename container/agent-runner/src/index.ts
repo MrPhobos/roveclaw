@@ -433,6 +433,17 @@ async function runQuery(
     }
   }
 
+  // Discover plugins mounted at /workspace/plugins/
+  const pluginsBase = '/workspace/plugins';
+  if (fs.existsSync(pluginsBase)) {
+    for (const entry of fs.readdirSync(pluginsBase)) {
+      const fullPath = path.join(pluginsBase, entry);
+      if (fs.statSync(fullPath).isDirectory()) {
+        args.push('--plugin-dir', fullPath);
+      }
+    }
+  }
+
   // LinkedIn tool allowlist — defense-in-depth on top of proxy enforcement
   args.push(
     '--allowedTools',
