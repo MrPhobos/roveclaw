@@ -28,7 +28,10 @@ describe('prepareArgusWorkspace', () => {
   });
 
   it('prepares workspace for argus group', () => {
-    const result = prepareArgusWorkspace(baseGroup, 'implement the action panel');
+    const result = prepareArgusWorkspace(
+      baseGroup,
+      'implement the action panel',
+    );
     expect(result).not.toBeNull();
     expect(result!.modifiedGroup.containerConfig!.additionalMounts).toEqual(
       expect.arrayContaining([

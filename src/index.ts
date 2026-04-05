@@ -423,7 +423,11 @@ async function runAgent(
   } finally {
     // Clean up agent worktree after container completes (success or error)
     if (workspace) {
-      cleanupWorktree(workspace.repoDir, workspace.jobId, workspace.worktreesBase);
+      cleanupWorktree(
+        workspace.repoDir,
+        workspace.jobId,
+        workspace.worktreesBase,
+      );
     }
   }
 }

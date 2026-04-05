@@ -71,5 +71,11 @@ export function prepareArgusWorkspace(
   ].join('\n');
   const modifiedPrompt = repoContext + prompt;
 
-  return { modifiedGroup, modifiedPrompt, repoDir, jobId, worktreesBase: ARGUS_WORKTREES };
+  return {
+    modifiedGroup,
+    modifiedPrompt,
+    repoDir,
+    jobId,
+    worktreesBase: ARGUS_WORKTREES,
+  };
 }
