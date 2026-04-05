@@ -70,12 +70,16 @@ function getDefaultBranch(repoDir: string): string {
 /**
  * Create a git worktree for a task. Returns the worktree path.
  */
-export function createWorktree(repoDir: string, jobId: string, worktreesBase?: string): string {
+export function createWorktree(
+  repoDir: string,
+  jobId: string,
+  worktreesBase?: string,
+): string {
   const base = worktreesBase ?? WORKTREES_BASE;
   const worktreePath = path.join(base, jobId);
   fs.mkdirSync(base, { recursive: true });
 
-  const branchName = `bob/${jobId}`;
+  const branchName = jobId;
   const defaultBranch = getDefaultBranch(repoDir);
 
   execFileSync(
@@ -98,7 +102,11 @@ export function createWorktree(repoDir: string, jobId: string, worktreesBase?: s
 /**
  * Clean up a worktree after task completion.
  */
-export function cleanupWorktree(repoDir: string, jobId: string, worktreesBase?: string): void {
+export function cleanupWorktree(
+  repoDir: string,
+  jobId: string,
+  worktreesBase?: string,
+): void {
   const worktreePath = path.join(worktreesBase ?? WORKTREES_BASE, jobId);
   try {
     execFileSync('git', ['worktree', 'remove', worktreePath, '--force'], {
