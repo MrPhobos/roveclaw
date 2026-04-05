@@ -125,28 +125,44 @@ function buildVolumeMounts(
   );
   fs.mkdirSync(groupSessionsDir, { recursive: true });
   const settingsFile = path.join(groupSessionsDir, 'settings.json');
-  if (!fs.existsSync(settingsFile)) {
-    fs.writeFileSync(
-      settingsFile,
-      JSON.stringify(
-        {
-          env: {
-            // Enable agent swarms (subagent orchestration)
-            // https://code.claude.com/docs/en/agent-teams#orchestrate-teams-of-claude-code-sessions
-            CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
-            // Load CLAUDE.md from additional mounted directories
-            // https://code.claude.com/docs/en/memory#load-memory-from-additional-directories
-            CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: '1',
-            // Enable Claude's memory feature (persists user preferences between sessions)
-            // https://code.claude.com/docs/en/memory#manage-auto-memory
-            CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0',
-          },
-        },
-        null,
-        2,
-      ) + '\n',
-    );
+  // Always read existing settings (or start fresh) and merge hooks in
+  let settings: Record<string, unknown> = {
+    env: {
+      // Enable agent swarms (subagent orchestration)
+      // https://code.claude.com/docs/en/agent-teams#orchestrate-teams-of-claude-code-sessions
+      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
+      // Load CLAUDE.md from additional mounted directories
+      // https://code.claude.com/docs/en/memory#load-memory-from-additional-directories
+      CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: '1',
+      // Enable Claude's memory feature (persists user preferences between sessions)
+      // https://code.claude.com/docs/en/memory#manage-auto-memory
+      CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0',
+    },
+  };
+  if (fs.existsSync(settingsFile)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
+    } catch {
+      // Corrupted settings — start fresh
+    }
   }
+  // Ensure env block is present (preserve existing values)
+  if (!settings.env || typeof settings.env !== 'object') {
+    settings.env = {
+      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
+      CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: '1',
+      CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0',
+    };
+  }
+  // Inject Watchtower subagent hooks (always overwrite to keep in sync with code)
+  const hookCommand = (event: string) =>
+    `CLAUDE_HOOK_EVENT=${event} NANOCLAW_GROUP=${group.folder.replace(/^telegram_/, '')} WATCHTOWER_AUTH=${process.env.WATCHTOWER_AUTH ?? 'admin:changeme'} node /home/node/.claude/skills/watchtower-hook/hook.js`;
+  settings.hooks = {
+    ...((settings.hooks as Record<string, unknown>) || {}),
+    SubagentStart: [{ hooks: [{ type: 'command', command: hookCommand('SubagentStart'), timeout: 10 }] }],
+    SubagentStop: [{ hooks: [{ type: 'command', command: hookCommand('SubagentStop'), timeout: 10 }] }],
+  };
+  fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + '\n');
 
   // Sync skills from container/skills/ into each group's .claude/skills/
   const skillsSrc = path.join(process.cwd(), 'container', 'skills');
@@ -266,6 +282,11 @@ async function buildContainerArgs(
 
   // Pass host timezone so container's local time matches the user's
   args.push('-e', `TZ=${TIMEZONE}`);
+
+  // Pass group identity so container hooks can identify which group is running
+  if (agentIdentifier) {
+    args.push('-e', `NANOCLAW_GROUP=${agentIdentifier}`);
+  }
 
   // Runtime-specific args for host gateway resolution
   args.push(...hostGatewayArgs());
