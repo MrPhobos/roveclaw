@@ -64,6 +64,7 @@ import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { logger } from './logger.js';
 import { prepareBobWorkspace } from './bob-integration.js';
+import { prepareArgusWorkspace } from './argus-integration.js';
 import { cleanupWorktree } from './repo-manager.js';
 import { WatchtowerReporter } from './reporter.js';
 import { createLinkedInProxy } from './linkedin-proxy.js';
@@ -369,10 +370,12 @@ async function runAgent(
       }
     : undefined;
 
-  // Bob integration: prepare repo workspace if this is Bob's group
+  // Agent workspace integrations: prepare repo workspace if applicable
   const bobWorkspace = prepareBobWorkspace(group, prompt, GROUPS_DIR);
-  const effectiveGroup = bobWorkspace ? bobWorkspace.modifiedGroup : group;
-  const effectivePrompt = bobWorkspace ? bobWorkspace.modifiedPrompt : prompt;
+  const argusWorkspace = prepareArgusWorkspace(group, prompt);
+  const workspace = bobWorkspace ?? argusWorkspace;
+  const effectiveGroup = workspace ? workspace.modifiedGroup : group;
+  const effectivePrompt = workspace ? workspace.modifiedPrompt : prompt;
 
   try {
     const output = await runContainerAgent(
@@ -418,9 +421,9 @@ async function runAgent(
     });
     return 'error';
   } finally {
-    // Clean up Bob's worktree after container completes (success or error)
-    if (bobWorkspace) {
-      cleanupWorktree(bobWorkspace.repoDir, bobWorkspace.jobId);
+    // Clean up agent worktree after container completes (success or error)
+    if (workspace) {
+      cleanupWorktree(workspace.repoDir, workspace.jobId, workspace.worktreesBase);
     }
   }
 }

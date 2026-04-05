@@ -22,6 +22,7 @@ export function prepareBobWorkspace(
   modifiedPrompt: string;
   repoDir: string;
   jobId: string;
+  worktreesBase?: string;
 } | null {
   if (group.folder !== 'telegram_bob') return null;
 
