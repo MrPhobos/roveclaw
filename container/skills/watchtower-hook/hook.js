@@ -10,7 +10,6 @@ const { condense } = await import(path.join(__dirname, 'condense.js'));
 const WATCHTOWER_URL = process.env.WATCHTOWER_URL || 'http://host.docker.internal:8400';
 const WATCHTOWER_AUTH = process.env.WATCHTOWER_AUTH || 'admin:changeme';
 const HOOK_EVENT = process.env.CLAUDE_HOOK_EVENT || '';
-const SESSION_ID = process.env.CLAUDE_SESSION_ID || 'unknown';
 const PARENT_AGENT = process.env.NANOCLAW_GROUP || 'unknown';
 const DEVICE = 'imac';
 
@@ -38,10 +37,14 @@ function post(urlPath, body) {
 }
 
 async function main() {
+  const chunks = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk);
+  }
   let input = {};
   try {
-    const raw = fs.readFileSync('/dev/stdin', 'utf-8');
-    input = JSON.parse(raw);
+    const raw = Buffer.concat(chunks).toString('utf-8').trim();
+    if (raw) input = JSON.parse(raw);
   } catch {}
 
   const subAgentId = `${PARENT_AGENT}/sub-${input.agent_id || 'unknown'}`;
@@ -151,7 +154,7 @@ async function main() {
     }
 
     case 'Notification': {
-      const message = input.message || input.notification || '';
+      const message = input.message || '';
       await post('/api/events', {
         agent_id: PARENT_AGENT,
         agent_name: PARENT_AGENT,
