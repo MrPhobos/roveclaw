@@ -445,7 +445,7 @@ async function runAgent(
         if (condensed) {
           await groupReporter.sendTranscript({
             agent_id: group.folder.replace(/^telegram_/, ''),
-            parent_agent_id: 'roveclaw',
+            parent_agent_id: 'phobosclaw',
             session_id: output.newSessionId,
             started_at: output.startedAt
               ? new Date(output.startedAt).toISOString()
@@ -641,11 +641,11 @@ async function main(): Promise<void> {
 
   watchtower = new WatchtowerReporter({
     ...watchtowerBaseConfig,
-    agentId: 'roveclaw',
-    agentName: 'Roveclaw',
+    agentId: 'phobosclaw',
+    agentName: 'Phobosclaw',
   });
 
-  watchtower.send({ event_type: 'session_start', summary: 'Roveclaw started' });
+  watchtower.send({ event_type: 'session_start', summary: 'Phobosclaw started' });
   const heartbeatInterval = watchtower.startHeartbeatLoop(30000);
 
   const linkedInLimiter = new LinkedInRateLimiter(getDatabase(), 15);
@@ -686,7 +686,7 @@ async function main(): Promise<void> {
     proxyServer.close();
     await watchtower.send({
       event_type: 'session_end',
-      summary: 'Roveclaw shutting down',
+      summary: 'Phobosclaw shutting down',
     });
     await new Promise<void>((resolve) => linkedInProxy.close(() => resolve()));
     await queue.shutdown(10000);

@@ -3,14 +3,14 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>dev.roveclaw</string>
+    <string>dev.phobosclaw</string>
     <key>ProgramArguments</key>
     <array>
         <string>/Users/robert/.nvm/versions/node/v24.14.0/bin/node</string>
-        <string>/Users/robert/roveclaw/dist/index.js</string>
+        <string>/Users/robert/phobosclaw/dist/index.js</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/robert/roveclaw</string>
+    <string>/Users/robert/phobosclaw</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
@@ -25,8 +25,8 @@
         <string>Rove</string>
     </dict>
     <key>StandardOutPath</key>
-    <string>/Users/robert/roveclaw/logs/roveclaw.log</string>
+    <string>/Users/robert/phobosclaw/logs/phobosclaw.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/robert/roveclaw/logs/roveclaw.error.log</string>
+    <string>/Users/robert/phobosclaw/logs/phobosclaw.error.log</string>
 </dict>
 </plist>

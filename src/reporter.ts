@@ -115,6 +115,6 @@ export function createGroupReporter(
     ...baseConfig,
     agentId: groupFolder.replace(/^telegram_/, ''),
     agentName: groupName,
-    parentAgentId: 'roveclaw',
+    parentAgentId: 'phobosclaw',
   });
 }
