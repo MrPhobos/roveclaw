@@ -98,7 +98,7 @@ export function prepareBobWorkspace(
         {
           hostPath: repoDir,
           containerPath: repoDir.split('/').pop() + '-base',
-          readonly: true,
+          readonly: false,
         },
       ],
     },

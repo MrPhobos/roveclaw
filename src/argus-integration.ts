@@ -56,7 +56,7 @@ export function prepareArgusWorkspace(
         {
           hostPath: repoDir,
           containerPath: 'watchtower-base',
-          readonly: true,
+          readonly: false,
         },
       ],
     },
