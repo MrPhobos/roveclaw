@@ -181,6 +181,39 @@ function buildVolumeMounts(
         ],
       },
     ],
+    PostToolUse: [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: hookCommand('PostToolUse'),
+            timeout: 10,
+          },
+        ],
+      },
+    ],
+    Stop: [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: hookCommand('Stop'),
+            timeout: 10,
+          },
+        ],
+      },
+    ],
+    Notification: [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: hookCommand('Notification'),
+            timeout: 10,
+          },
+        ],
+      },
+    ],
   };
   fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + '\n');
 

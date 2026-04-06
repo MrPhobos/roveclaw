@@ -87,6 +87,80 @@ async function main() {
       }
       break;
     }
+
+    case 'PostToolUse': {
+      const usage = input.usage;
+      const model = input.model;
+      if (usage && model) {
+        await post('/api/events', {
+          agent_id: PARENT_AGENT,
+          agent_name: PARENT_AGENT,
+          device: DEVICE,
+          event_type: 'token_usage',
+          timestamp: new Date().toISOString(),
+          summary: 'tokens',
+          tokens: {
+            input: usage.input_tokens || 0,
+            output: usage.output_tokens || 0,
+            cache_read: usage.cache_read_input_tokens || 0,
+            cache_create: usage.cache_creation_input_tokens || 0,
+            model,
+          },
+        });
+      }
+      break;
+    }
+
+    case 'Stop': {
+      const stopEvent = {
+        agent_id: PARENT_AGENT,
+        agent_name: PARENT_AGENT,
+        device: DEVICE,
+        event_type: 'session_end',
+        timestamp: new Date().toISOString(),
+        summary: `Session ended`,
+      };
+      const stopUsage = input.usage;
+      const stopModel = input.model;
+      if (stopUsage && stopModel) {
+        stopEvent.tokens = {
+          input: stopUsage.input_tokens || 0,
+          output: stopUsage.output_tokens || 0,
+          cache_read: stopUsage.cache_read_input_tokens || 0,
+          cache_create: stopUsage.cache_creation_input_tokens || 0,
+          model: stopModel,
+        };
+      }
+      await post('/api/events', stopEvent);
+
+      const transcriptPath = input.transcript_path;
+      if (transcriptPath && fs.existsSync(transcriptPath)) {
+        try {
+          const condensed = condense(transcriptPath);
+          await post('/api/transcripts', {
+            agent_id: PARENT_AGENT,
+            started_at: new Date().toISOString(),
+            ended_at: new Date().toISOString(),
+            summary: String(input.last_assistant_message || '').slice(0, 200),
+            content: condensed,
+          });
+        } catch {}
+      }
+      break;
+    }
+
+    case 'Notification': {
+      const message = input.message || input.notification || '';
+      await post('/api/events', {
+        agent_id: PARENT_AGENT,
+        agent_name: PARENT_AGENT,
+        device: DEVICE,
+        event_type: 'notification',
+        timestamp: new Date().toISOString(),
+        summary: message.length > 200 ? message.slice(0, 200) + '...' : message,
+      });
+      break;
+    }
   }
 }
 
