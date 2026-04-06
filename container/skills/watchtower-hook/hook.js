@@ -117,9 +117,9 @@ async function main() {
         agent_id: PARENT_AGENT,
         agent_name: PARENT_AGENT,
         device: DEVICE,
-        event_type: 'session_end',
+        event_type: 'turn_complete',
         timestamp: new Date().toISOString(),
-        summary: `Session ended`,
+        summary: `Turn finished`,
       };
       const stopUsage = input.usage;
       const stopModel = input.model;
