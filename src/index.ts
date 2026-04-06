@@ -75,6 +75,12 @@ import { getDatabase } from './db.js';
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
 
+function tailLines(text: string | undefined, n: number): string | undefined {
+  if (!text) return undefined;
+  const lines = text.split('\n');
+  return lines.slice(-n).join('\n');
+}
+
 let lastTimestamp = '';
 let sessions: Record<string, string> = {};
 let registeredGroups: Record<string, RegisteredGroup> = {};
@@ -420,6 +426,15 @@ async function runAgent(
         event_type: 'error',
         summary: `Container error for ${group.name}: ${output.error}`,
       });
+      groupReporter.send({
+        event_type: 'session_end',
+        summary: `Session ended with error`,
+        details: {
+          exit_code: 1,
+          error: output.error,
+          logs: tailLines(output.stderr, 50),
+        },
+      });
       return 'error';
     }
 
@@ -445,12 +460,30 @@ async function runAgent(
       }
     }
 
+    // Send session_end with container logs
+    groupReporter.send({
+      event_type: 'session_end',
+      summary: `Session ended`,
+      details: {
+        exit_code: 0,
+        logs: tailLines(output.stderr, 50),
+      },
+    });
+
     return 'success';
   } catch (err) {
     logger.error({ group: group.name, err }, 'Agent error');
     groupReporter.send({
       event_type: 'error',
       summary: `Agent error for ${group.name}: ${err instanceof Error ? err.message : String(err)}`,
+    });
+    groupReporter.send({
+      event_type: 'session_end',
+      summary: `Session ended with error`,
+      details: {
+        exit_code: 1,
+        error: err instanceof Error ? err.message : String(err),
+      },
     });
     return 'error';
   } finally {

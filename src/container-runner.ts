@@ -51,6 +51,7 @@ export interface ContainerOutput {
   newSessionId?: string;
   error?: string;
   stdout?: string;
+  stderr?: string;
   startedAt?: number;
 }
 
@@ -683,6 +684,7 @@ export async function runContainerAgent(
           status: 'error',
           result: null,
           error: `Container exited with code ${code}: ${stderr.slice(-200)}`,
+          stderr,
         });
         return;
       }
@@ -699,6 +701,7 @@ export async function runContainerAgent(
             result: null,
             newSessionId,
             stdout,
+            stderr,
             startedAt: startTime,
           });
         });
@@ -734,7 +737,7 @@ export async function runContainerAgent(
           'Container completed',
         );
 
-        resolve({ ...output, stdout, startedAt: startTime });
+        resolve({ ...output, stdout, stderr, startedAt: startTime });
       } catch (err) {
         logger.error(
           {
@@ -750,6 +753,7 @@ export async function runContainerAgent(
           status: 'error',
           result: null,
           error: `Failed to parse container output: ${err instanceof Error ? err.message : String(err)}`,
+          stderr,
         });
       }
     });
