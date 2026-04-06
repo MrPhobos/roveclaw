@@ -89,25 +89,26 @@ async function main() {
     }
 
     case 'PostToolUse': {
-      const usage = input.usage;
-      const model = input.model;
-      if (usage && model) {
-        await post('/api/events', {
-          agent_id: PARENT_AGENT,
-          agent_name: PARENT_AGENT,
-          device: DEVICE,
-          event_type: 'token_usage',
-          timestamp: new Date().toISOString(),
-          summary: 'tokens',
-          tokens: {
-            input: usage.input_tokens || 0,
-            output: usage.output_tokens || 0,
-            cache_read: usage.cache_read_input_tokens || 0,
-            cache_create: usage.cache_creation_input_tokens || 0,
-            model,
-          },
-        });
+      const toolName = input.tool_name || 'unknown';
+      const toolInput = input.tool_input || {};
+      let summary = toolName;
+      if (toolName === 'Bash' && toolInput.command) {
+        summary = `Bash: ${toolInput.command.slice(0, 120)}`;
+      } else if (toolName === 'Edit' && toolInput.file_path) {
+        summary = `Edit: ${toolInput.file_path}`;
+      } else if (toolName === 'Read' && toolInput.file_path) {
+        summary = `Read: ${toolInput.file_path}`;
+      } else if (toolName === 'Write' && toolInput.file_path) {
+        summary = `Write: ${toolInput.file_path}`;
       }
+      await post('/api/events', {
+        agent_id: PARENT_AGENT,
+        agent_name: PARENT_AGENT,
+        device: DEVICE,
+        event_type: 'tool_use',
+        timestamp: new Date().toISOString(),
+        summary,
+      });
       break;
     }
 
