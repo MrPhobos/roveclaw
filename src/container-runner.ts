@@ -290,7 +290,6 @@ function buildVolumeMounts(
     });
   }
 
-
   // Mount host gh CLI config read-only so containers can push to GitHub and create PRs.
   // Entrypoint copies to /home/node/.config/gh/ (writable copy per container).
   const ghConfigDir = path.join(os.homedir(), '.config', 'gh');
