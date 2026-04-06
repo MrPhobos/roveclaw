@@ -47,7 +47,7 @@ function log(
 ): void {
   if (LEVELS[level] < threshold) return;
   const tag = `${COLORS[level]}${level.toUpperCase()}${level === 'fatal' ? FULL_RESET : RESET}`;
-  const stream = LEVELS[level] >= LEVELS.warn ? process.stderr : process.stdout;
+  const stream = process.stdout;
   if (typeof dataOrMsg === 'string') {
     stream.write(
       `[${ts()}] ${tag} (${process.pid}): ${MSG_COLOR}${dataOrMsg}${RESET}\n`,

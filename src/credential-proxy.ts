@@ -24,6 +24,13 @@ import os from 'os';
 import path from 'path';
 
 import { readEnvFile } from './env.js';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const PKG_VERSION: string = (() => {
+  try { return (require('../package.json') as { version: string }).version; }
+  catch { return '0.0.0'; }
+})();
 import { logger } from './logger.js';
 
 export type AuthMode = 'api-key' | 'oauth';
@@ -40,11 +47,14 @@ const CREDENTIALS_PATH = path.join(
 const CLAUDE_CODE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
 const REFRESH_MARGIN_MS = 30 * 60 * 1000; // refresh 30 minutes before expiry
 const REFRESH_CHECK_INTERVAL_MS = 30 * 60 * 1000; // check every 30 minutes
+const BACKOFF_BASE_MS = 5 * 60 * 1000; // initial backoff: 5 minutes
+const BACKOFF_MAX_MS = 60 * 60 * 1000; // max backoff: 1 hour
 
 // Serializes concurrent refresh attempts so only one runs at a time
 let refreshInFlight: Promise<string | null> | null = null;
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 let refreshBackoffUntil = 0; // timestamp - skip refresh attempts until this time
+let consecutiveFailures = 0; // tracks failures for exponential backoff
 
 interface OAuthCredentials {
   accessToken: string;
@@ -100,20 +110,69 @@ function doRefresh(refreshToken: string): Promise<{
         headers: {
           'content-type': 'application/json',
           'content-length': Buffer.byteLength(postBody),
-          'user-agent': 'claude-code/2.1.87',
+          'user-agent': `claude-code/${PKG_VERSION}`,
         },
         timeout: 15000,
       },
       (res) => {
+        // Follow redirects (e.g. Cloudflare 302)
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          res.resume();
+          logger.warn({ statusCode: res.statusCode, location: res.headers.location }, 'OAuth refresh redirected, following');
+          const redirectUrl = new URL(res.headers.location);
+          const redirectReq = httpsRequest(
+            {
+              hostname: redirectUrl.hostname,
+              port: 443,
+              path: redirectUrl.pathname + redirectUrl.search,
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'content-length': Buffer.byteLength(postBody),
+                'user-agent': `claude-code/${PKG_VERSION}`,
+              },
+              timeout: 15000,
+            },
+            (redirectRes) => {
+              const rChunks: Buffer[] = [];
+              redirectRes.on('data', (c) => rChunks.push(c));
+              redirectRes.on('end', () => {
+                if (redirectRes.statusCode !== 200) {
+                  logger.error({ statusCode: redirectRes.statusCode }, 'OAuth refresh failed after redirect');
+                  consecutiveFailures++;
+                  resolve(null);
+                  return;
+                }
+                try {
+                  const data = JSON.parse(Buffer.concat(rChunks).toString());
+                  consecutiveFailures = 0;
+                  resolve({ accessToken: data.access_token, refreshToken: data.refresh_token, expiresIn: data.expires_in });
+                } catch (err) {
+                  logger.error({ err }, 'Failed to parse redirect refresh response');
+                  resolve(null);
+                }
+              });
+            },
+          );
+          redirectReq.on('error', (err) => { logger.error({ err }, 'Redirect request error'); resolve(null); });
+          redirectReq.on('timeout', () => { redirectReq.destroy(); logger.error('Redirect request timed out'); resolve(null); });
+          redirectReq.write(postBody);
+          redirectReq.end();
+          return;
+        }
+
         const chunks: Buffer[] = [];
         res.on('data', (c) => chunks.push(c));
         res.on('end', () => {
           if (res.statusCode !== 200) {
             const respBody = Buffer.concat(chunks).toString();
             if (res.statusCode === 429) {
-              // Back off for 5 minutes on rate limit
-              refreshBackoffUntil = Date.now() + 5 * 60 * 1000;
-              logger.warn('OAuth refresh rate limited, backing off 5 minutes');
+              consecutiveFailures++;
+              const backoffMs = Math.min(BACKOFF_BASE_MS * Math.pow(2, consecutiveFailures - 1), BACKOFF_MAX_MS);
+              refreshBackoffUntil = Date.now() + backoffMs;
+              logger.warn({ backoffMs, consecutiveFailures }, `OAuth refresh rate limited, backing off ${Math.round(backoffMs / 60000)} minutes`);
+            } else {
+              consecutiveFailures++;
             }
             logger.error(
               { statusCode: res.statusCode, body: respBody },
@@ -198,6 +257,7 @@ async function ensureValidToken(): Promise<string | null> {
       | OAuthCredentials
       | undefined;
 
+    consecutiveFailures = 0;
     const updatedOauth: OAuthCredentials = {
       ...(freshOauth || oauth),
       accessToken: result.accessToken,

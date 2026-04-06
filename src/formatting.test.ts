@@ -143,8 +143,8 @@ describe('TRIGGER_PATTERN', () => {
     expect(TRIGGER_PATTERN.test(`@${upper} hello`)).toBe(true);
   });
 
-  it('does not match when not at start of message', () => {
-    expect(TRIGGER_PATTERN.test(`hello @${name}`)).toBe(false);
+  it('matches trigger anywhere in the message', () => {
+    expect(TRIGGER_PATTERN.test(`hello @${name}`)).toBe(true);
   });
 
   it('does not match partial name like @NameExtra (word boundary)', () => {
@@ -184,6 +184,20 @@ describe('getTriggerPattern', () => {
 
     expect(pattern.test('@C.L.A.U.D.E hello')).toBe(true);
     expect(pattern.test('@CXLXAUXDXE hello')).toBe(false);
+  });
+
+  it('matches trigger anywhere in the message, not just at the start', () => {
+    const pattern = getTriggerPattern('@Claw');
+
+    expect(pattern.test('do something @Claw')).toBe(true);
+    expect(pattern.test('hey @Claw can you help')).toBe(true);
+    expect(pattern.test('@Claw at the start')).toBe(true);
+  });
+
+  it('does not match trigger embedded inside a word', () => {
+    const pattern = getTriggerPattern('@Bob');
+
+    expect(pattern.test('email@Bobby')).toBe(false);
   });
 });
 
