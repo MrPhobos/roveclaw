@@ -159,8 +159,28 @@ function buildVolumeMounts(
     `CLAUDE_HOOK_EVENT=${event} NANOCLAW_GROUP=${group.folder.replace(/^telegram_/, '')} WATCHTOWER_AUTH=${process.env.WATCHTOWER_AUTH ?? 'admin:changeme'} node /home/node/.claude/skills/watchtower-hook/hook.js`;
   settings.hooks = {
     ...((settings.hooks as Record<string, unknown>) || {}),
-    SubagentStart: [{ hooks: [{ type: 'command', command: hookCommand('SubagentStart'), timeout: 10 }] }],
-    SubagentStop: [{ hooks: [{ type: 'command', command: hookCommand('SubagentStop'), timeout: 10 }] }],
+    SubagentStart: [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: hookCommand('SubagentStart'),
+            timeout: 10,
+          },
+        ],
+      },
+    ],
+    SubagentStop: [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: hookCommand('SubagentStop'),
+            timeout: 10,
+          },
+        ],
+      },
+    ],
   };
   fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + '\n');
 
@@ -270,6 +290,17 @@ function buildVolumeMounts(
     });
   }
 
+
+  // Mount host gh CLI config read-only so containers can push to GitHub and create PRs.
+  // Entrypoint copies to /home/node/.config/gh/ (writable copy per container).
+  const ghConfigDir = path.join(os.homedir(), '.config', 'gh');
+  if (fs.existsSync(ghConfigDir)) {
+    mounts.push({
+      hostPath: ghConfigDir,
+      containerPath: '/home/node/.gh-host-config',
+      readonly: true,
+    });
+  }
   return mounts;
 }
 

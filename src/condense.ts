@@ -1,14 +1,18 @@
 const MAX_OUTPUT_LENGTH = 500;
 
 export function condenseContent(content: string): string {
-  const lines = content.split('\n').filter(l => l.trim());
+  const lines = content.split('\n').filter((l) => l.trim());
   if (lines.length === 0) return '';
 
   const condensed: string[] = [];
 
   for (const line of lines) {
     let entry: Record<string, unknown>;
-    try { entry = JSON.parse(line); } catch { continue; }
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
 
     const out: Record<string, unknown> = {
       role: entry.role,
@@ -23,9 +27,10 @@ export function condenseContent(content: string): string {
     if (entry.output !== undefined) {
       const original = String(entry.output);
       out.output_chars = original.length;
-      out.output_preview = original.length > MAX_OUTPUT_LENGTH
-        ? original.slice(0, MAX_OUTPUT_LENGTH)
-        : original;
+      out.output_preview =
+        original.length > MAX_OUTPUT_LENGTH
+          ? original.slice(0, MAX_OUTPUT_LENGTH)
+          : original;
     }
 
     condensed.push(JSON.stringify(out));

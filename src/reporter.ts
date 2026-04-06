@@ -57,7 +57,6 @@ export class WatchtowerReporter {
     }, intervalMs);
   }
 
-
   async sendTranscript(payload: {
     agent_id: string;
     parent_agent_id?: string;

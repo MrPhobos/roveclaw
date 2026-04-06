@@ -15,6 +15,12 @@ if [ -f /home/node/.claude-host-creds/.credentials.json ]; then
   cp /home/node/.claude-host-creds/.credentials.json /home/node/.claude/.credentials.json
   chown node:node /home/node/.claude/.credentials.json 2>/dev/null || true
 fi
+# Copy gh CLI config from host mount so containers can push to GitHub
+if [ -d /home/node/.gh-host-config ]; then
+  mkdir -p /home/node/.config/gh
+  cp -r /home/node/.gh-host-config/* /home/node/.config/gh/
+  chown -R node:node /home/node/.config/gh 2>/dev/null || true
+fi
 # Read stdin before dropping privileges
 cat > /tmp/input.json
 chown node:node /tmp/input.json
