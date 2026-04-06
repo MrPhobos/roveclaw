@@ -20,6 +20,18 @@ if [ -d /home/node/.gh-host-config ]; then
   mkdir -p /home/node/.config/gh
   cp -r /home/node/.gh-host-config/* /home/node/.config/gh/
   chown -R node:node /home/node/.config/gh 2>/dev/null || true
+  # Wire up gh as git credential helper (host path differs from container path)
+  su node -c 'gh auth setup-git' 2>/dev/null || true
+fi
+# Configure git identity from NANOCLAW_GROUP env var (e.g. telegram-bob -> Bob)
+if [ -n "$NANOCLAW_GROUP" ]; then
+  AGENT_NAME=${NANOCLAW_GROUP#telegram-}
+  AGENT_NAME=${AGENT_NAME^}
+  su node -c "git config --global user.name \"$AGENT_NAME (PhobosClaw)\""
+  su node -c "git config --global user.email \"$AGENT_NAME@phobosclaw.noreply.github.com\""
+else
+  su node -c 'git config --global user.name "PhobosClaw Agent"'
+  su node -c 'git config --global user.email "agent@phobosclaw.noreply.github.com"'
 fi
 # Read stdin before dropping privileges
 cat > /tmp/input.json
