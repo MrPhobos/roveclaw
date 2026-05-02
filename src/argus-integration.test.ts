@@ -5,7 +5,7 @@ import * as repoManager from './repo-manager.js';
 
 vi.mock('./repo-manager.js', () => ({
   prepareWorkspace: vi.fn().mockReturnValue({
-    repoDir: '/Users/robert/bob-repos/MrPhobos/watchtower',
+    repoDir: '/Users/robert/dev-repos/MrPhobos/watchtower',
     worktreePath: '/Users/robert/argus-worktrees/argus-1234',
   }),
 }));

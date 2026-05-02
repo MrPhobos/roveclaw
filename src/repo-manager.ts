@@ -1,5 +1,5 @@
 /**
- * Repo Manager for Bob
+ * Repo Manager
  * Handles: parsing repo references from messages, cloning repos,
  * creating/cleaning up git worktrees for task isolation.
  */
@@ -10,8 +10,8 @@ import os from 'os';
 
 import { logger } from './logger.js';
 
-const REPOS_BASE = path.join(os.homedir(), 'bob-repos');
-const WORKTREES_BASE = path.join(os.homedir(), 'bob-worktrees');
+const REPOS_BASE = path.join(os.homedir(), 'dev-repos');
+const WORKTREES_BASE = path.join(os.homedir(), 'dev-worktrees');
 
 export interface RepoRef {
   owner: string;

@@ -28,8 +28,11 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const PKG_VERSION: string = (() => {
-  try { return (require('../package.json') as { version: string }).version; }
-  catch { return '0.0.0'; }
+  try {
+    return (require('../package.json') as { version: string }).version;
+  } catch {
+    return '0.0.0';
+  }
 })();
 import { logger } from './logger.js';
 
@@ -116,9 +119,17 @@ function doRefresh(refreshToken: string): Promise<{
       },
       (res) => {
         // Follow redirects (e.g. Cloudflare 302)
-        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        if (
+          res.statusCode &&
+          res.statusCode >= 300 &&
+          res.statusCode < 400 &&
+          res.headers.location
+        ) {
           res.resume();
-          logger.warn({ statusCode: res.statusCode, location: res.headers.location }, 'OAuth refresh redirected, following');
+          logger.warn(
+            { statusCode: res.statusCode, location: res.headers.location },
+            'OAuth refresh redirected, following',
+          );
           const redirectUrl = new URL(res.headers.location);
           const redirectReq = httpsRequest(
             {
@@ -138,7 +149,10 @@ function doRefresh(refreshToken: string): Promise<{
               redirectRes.on('data', (c) => rChunks.push(c));
               redirectRes.on('end', () => {
                 if (redirectRes.statusCode !== 200) {
-                  logger.error({ statusCode: redirectRes.statusCode }, 'OAuth refresh failed after redirect');
+                  logger.error(
+                    { statusCode: redirectRes.statusCode },
+                    'OAuth refresh failed after redirect',
+                  );
                   consecutiveFailures++;
                   resolve(null);
                   return;
@@ -146,16 +160,30 @@ function doRefresh(refreshToken: string): Promise<{
                 try {
                   const data = JSON.parse(Buffer.concat(rChunks).toString());
                   consecutiveFailures = 0;
-                  resolve({ accessToken: data.access_token, refreshToken: data.refresh_token, expiresIn: data.expires_in });
+                  resolve({
+                    accessToken: data.access_token,
+                    refreshToken: data.refresh_token,
+                    expiresIn: data.expires_in,
+                  });
                 } catch (err) {
-                  logger.error({ err }, 'Failed to parse redirect refresh response');
+                  logger.error(
+                    { err },
+                    'Failed to parse redirect refresh response',
+                  );
                   resolve(null);
                 }
               });
             },
           );
-          redirectReq.on('error', (err) => { logger.error({ err }, 'Redirect request error'); resolve(null); });
-          redirectReq.on('timeout', () => { redirectReq.destroy(); logger.error('Redirect request timed out'); resolve(null); });
+          redirectReq.on('error', (err) => {
+            logger.error({ err }, 'Redirect request error');
+            resolve(null);
+          });
+          redirectReq.on('timeout', () => {
+            redirectReq.destroy();
+            logger.error('Redirect request timed out');
+            resolve(null);
+          });
           redirectReq.write(postBody);
           redirectReq.end();
           return;
@@ -168,9 +196,15 @@ function doRefresh(refreshToken: string): Promise<{
             const respBody = Buffer.concat(chunks).toString();
             if (res.statusCode === 429) {
               consecutiveFailures++;
-              const backoffMs = Math.min(BACKOFF_BASE_MS * Math.pow(2, consecutiveFailures - 1), BACKOFF_MAX_MS);
+              const backoffMs = Math.min(
+                BACKOFF_BASE_MS * Math.pow(2, consecutiveFailures - 1),
+                BACKOFF_MAX_MS,
+              );
               refreshBackoffUntil = Date.now() + backoffMs;
-              logger.warn({ backoffMs, consecutiveFailures }, `OAuth refresh rate limited, backing off ${Math.round(backoffMs / 60000)} minutes`);
+              logger.warn(
+                { backoffMs, consecutiveFailures },
+                `OAuth refresh rate limited, backing off ${Math.round(backoffMs / 60000)} minutes`,
+              );
             } else {
               consecutiveFailures++;
             }
